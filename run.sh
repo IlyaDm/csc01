@@ -57,15 +57,17 @@ for i in "${!addresses[@]}"; do
   container_name="cysic-$((i+1))"
   host_port=$((8000 + i + 1)) # Порты: 8001, 8002, 8003, ...
 
-  # Если контейнер уже существует, пропускаем его создание
+  # Если контейнер уже существует, обновляем параметр перезапуска
   if docker ps -a | grep -q "$container_name"; then
-    echo "Контейнер $container_name уже существует. Пропускаем создание."
+    echo "Контейнер $container_name уже существует. Настраиваем автоматический перезапуск."
+    docker update --restart unless-stopped "$container_name"
     docker start "$container_name" > /dev/null 2>&1 || echo "Контейнер $container_name уже запущен."
   else
     # Создаём новый контейнер
     echo "Создаём и запускаем контейнер $container_name с адресом ${addresses[$i]} на порту $host_port..."
     docker run -d \
       --name "$container_name" \
+      --restart unless-stopped \
       -v "$(pwd)/data/node$((i+1)):/root/.cysic" \
       -p "$host_port:80" \
       --env CLAIM_REWARD_ADDRESS="${addresses[$i]}" \
@@ -75,9 +77,9 @@ done
 
 # 7. Ожидание генерации ключей
 echo "Ожидаем генерации ключей (30 секунд)..."
-sleep 30  # Ждём 30 секунд для генерации ключей
+sleep 30
 
-# 8. Создаём бэкап ключей
+# 8. Создаём бэкапы ключей
 echo "Создаём бэкапы ключей..."
 mkdir -p backups
 for i in "${!addresses[@]}"; do
@@ -103,3 +105,8 @@ done
 # 9. Вывод информации о запущенных контейнерах
 echo "Контейнеры запущены:"
 docker ps | grep cysic-
+
+# 10. Включение автозапуска Docker-сервиса
+echo "Настраиваем автозапуск Docker-сервиса..."
+sudo systemctl enable docker
+echo "Docker-сервис настроен на автозапуск."
