@@ -73,21 +73,33 @@ for i in "${!addresses[@]}"; do
   fi
 done
 
-# 7. Создаём бэкап ключей
+# 7. Ожидание генерации ключей
+echo "Ожидаем генерации ключей (30 секунд)..."
+sleep 30  # Ждём 30 секунд для генерации ключей
+
+# 8. Создаём бэкап ключей
 echo "Создаём бэкапы ключей..."
 mkdir -p backups
 for i in "${!addresses[@]}"; do
   key_path="./data/node$((i+1))/keys/${addresses[$i]}.key"
   backup_path="./backups/${addresses[$i]}.key"
 
+  # Проверяем наличие ключа с повторной проверкой, если его ещё нет
+  retries=5
+  while [ ! -f "$key_path" ] && [ $retries -gt 0 ]; do
+    echo "Ключ для ноды $((i+1)) ($key_path) ещё не создан. Ожидание..."
+    sleep 10
+    retries=$((retries - 1))
+  done
+
   if [ -f "$key_path" ]; then
     cp "$key_path" "$backup_path"
     echo "Бэкап для ноды $((i+1)) ($key_path) создан в $backup_path."
   else
-    echo "Ключ для ноды $((i+1)) ($key_path) не найден. Пропускаем бэкап."
+    echo "Ключ для ноды $((i+1)) ($key_path) не найден даже после ожидания. Пропускаем бэкап."
   fi
 done
 
-# 8. Вывод информации о запущенных контейнерах
+# 9. Вывод информации о запущенных контейнерах
 echo "Контейнеры запущены:"
 docker ps | grep cysic-
