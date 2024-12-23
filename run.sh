@@ -73,6 +73,21 @@ for i in "${!addresses[@]}"; do
   fi
 done
 
-# 7. Вывод информации о запущенных контейнерах
+# 7. Создаём бэкап ключей
+echo "Создаём бэкапы ключей..."
+mkdir -p backups
+for i in "${!addresses[@]}"; do
+  key_path="./data/node$((i+1))/keys/${addresses[$i]}.key"
+  backup_path="./backups/${addresses[$i]}.key"
+
+  if [ -f "$key_path" ]; then
+    cp "$key_path" "$backup_path"
+    echo "Бэкап для ноды $((i+1)) ($key_path) создан в $backup_path."
+  else
+    echo "Ключ для ноды $((i+1)) ($key_path) не найден. Пропускаем бэкап."
+  fi
+done
+
+# 8. Вывод информации о запущенных контейнерах
 echo "Контейнеры запущены:"
 docker ps | grep cysic-
