@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# 1. Проверяем наличие Docker и устанавливаем, если его нет
+# 1. Обновляем систему
+echo "Обновляем систему..."
+sudo apt-get update && sudo apt-get upgrade -y
+
+# 2. Проверяем наличие Docker и устанавливаем, если его нет
 if ! command -v docker &> /dev/null; then
   echo "Docker не установлен. Устанавливаем Docker..."
-  sudo apt-get update && sudo apt-get install -y \
+  sudo apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -16,13 +20,13 @@ else
   echo "Docker уже установлен."
 fi
 
-# 2. Проверяем наличие файла с адресами
+# 3. Проверяем наличие файла с адресами
 if [ ! -f addresses.txt ]; then
   echo "Файл addresses.txt не найден. Пожалуйста, создайте файл с адресами построчно."
   exit 1
 fi
 
-# 3. Считываем адреса из файла
+# 4. Считываем адреса из файла
 addresses=()
 while IFS= read -r line || [[ -n "$line" ]]; do
   addresses+=("$line")
@@ -36,7 +40,19 @@ fi
 
 echo "Найдено ${#addresses[@]} адресов. Будет запущено соответствующее количество нод."
 
-# 4. Создаём или перезапускаем контейнеры
+# 5. Проверяем, существует ли Docker-образ, и собираем его, если нужно
+if ! docker images | grep -q cysic-node; then
+  echo "Собираем Docker-образ cysic-node..."
+  docker build . -t cysic-node
+  if [ $? -ne 0 ]; then
+    echo "Ошибка при сборке Docker-образа. Проверьте Dockerfile."
+    exit 1
+  fi
+else
+  echo "Docker-образ cysic-node уже существует."
+fi
+
+# 6. Создаём или перезапускаем контейнеры
 for i in "${!addresses[@]}"; do
   container_name="cysic-$((i+1))"
   host_port=$((8000 + i + 1)) # Порты: 8001, 8002, 8003, ...
@@ -57,16 +73,6 @@ for i in "${!addresses[@]}"; do
   fi
 done
 
-# 5. Удаляем лишние контейнеры, если их больше, чем адресов
-existing_containers=$(docker ps -a --format "{{.Names}}" | grep -E '^cysic-[0-9]+$')
-for container in $existing_containers; do
-  container_index=$(echo "$container" | grep -oE '[0-9]+$')
-  if [ "$container_index" -gt "${#addresses[@]}" ]; then
-    echo "Останавливаем и удаляем контейнер $container, так как он больше не нужен."
-    docker rm -f "$container"
-  fi
-done
-
-# 6. Вывод информации о запущенных контейнерах
+# 7. Вывод информации о запущенных контейнерах
 echo "Контейнеры запущены:"
 docker ps | grep cysic-
